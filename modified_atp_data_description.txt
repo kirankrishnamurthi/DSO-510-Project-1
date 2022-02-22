@@ -1,0 +1,74 @@
+  [1] "tourney_id"               "tourney_name"             "surface"                  "draw_size"               
+  [5] "tourney_level"            "tourney_date"             "match_num"                "winner_id"               
+  [9] "winner_seed"              "winner_entry"             "winner_name"              "winner_hand"             
+ [13] "winner_ht"                "winner_ioc"               "winner_age"               "loser_id"                
+ [17] "loser_seed"               "loser_entry"              "loser_name"               "loser_hand"              
+ [21] "loser_ht"                 "loser_ioc"                "loser_age"                "first_set"               
+ [25] "second_set"               "third_set"                "fourth_set"               "fifth_set"               
+ [29] "best_of"                  "round"                    "minutes"                  "w_ace"                   
+ [33] "w_df"                     "w_svpt"                   "w_1stIn"                  "w_1stWon"                
+ [37] "w_2ndWon"                 "w_SvGms"                  "w_bpSaved"                "w_bpFaced"               
+ [41] "l_ace"                    "l_df"                     "l_svpt"                   "l_1stIn"                 
+ [45] "l_1stWon"                 "l_2ndWon"                 "l_SvGms"                  "l_bpSaved"               
+ [49] "l_bpFaced"                "winner_rank"              "winner_rank_points"       "loser_rank"              
+ [53] "loser_rank_points"        "ranking_distance"         "point_distance"           "first_sg1"               
+ [57] "first_sg2"                "second_sg1"               "second_sg2"               "third_sg1"               
+ [61] "third_sg2"                "fourth_sg1"               "fourth_sg2"               "fifth_sg1"               
+ [65] "fifth_sg2"                "first_sts"                "second_sts"               "third_sts"               
+ [69] "fourth_sts"               "fifth_sts"                "first_sttp"               "second_sttp"             
+ [73] "third_sttp"               "fourth_sttp"              "fifth_sttp"               "first_sg"                
+ [77] "second_sg"                "third_sg"                 "fourth_sg"                "fifth_sg"                
+ [81] "sets_played"              "games_played"             "average_set_length"       "average_game_length"     
+ [85] "ace_gap"                  "w_ace_win_ratio"          "w_ace_serve_ratio"        "l_ace_win_ratio"         
+ [89] "l_ace_serve_ratio"        "w_bpRatio"                "l_bpRatio"                "w_svRatio"               
+ [93] "l_svRatio"                "w_1stWinRatio"            "l_1stWinRatio"            "total_height"            
+ [97] "w_SvGms_TotGms"           "w_SvGms_TotGms_Log"       "l_SvGms_TotGms"           "l_SvGms_TotGms_Log"      
+[101] "age_gap"                  "hand_combo"               "first_set_comp"           "second_set_comp"         
+[105] "third_set_comp"           "fourth_set_comp"          "fifth_set_comp"           "match_comp_tot"          
+[109] "match_comp_standardized"  "first_tiebreaker_comp"    "second_tiebreaker_comp"   "third_tiebreaker_comp"   
+[113] "fourth_tiebreaker_comp"   "fifth_tiebreaker_comp"    "total_tiebreaker_comp"    "standard_tiebreaker_comp"
+> 
+
+
+
+ranking_distance 
+This is calculation of how far apart the two players are in terms of their ATP rankings. This is an inverse scale since technically the lower your ranking is, the better you are as a player. Thus, this is derived from taking loser_rank - winner_rank = ranking_distance. For example, if the two players are loser_ranking = 100 and winner_ranking = 1 then the ranking distance would be 100 - 1 = 99. 
+
+point_distance
+This is a calculation of how far apart the two players are in terms of their ATP points. This is derived from taking the winner_rank_points - loser_rank_points = point_distance
+
+first_set, second_set, third_set, fourth_set, fifth_set 
+These columns all represent the set score at the corresponding set in the match 
+
+first_sts, second_sts, third_sts, fourth_sts, fifth_sts
+These columns represent the documented tie-breaker score from the corresponding set if a it went to a tiebreaker. For example, a value of '6' means that the loser in this set tie-breaker had six points. Therefore, given how tiebreaker scoring works, that means the winner had to have had 8 points since tie-breakers are first to 7 but you need to win by 2. If the value is '4', that means the loser had 4 points and the winner had 7 points since they got there first and had a 2+ point gap over their opponent. 
+
+first_sttp, second_sttp, third_sttp, fourth_sttp, fifth_sttp
+These columns represent the total number of points played in a tiebreaker. For example, if the number in the corresponding 'sts' column were to be 4, that would mean the tie-breaker score would be 7-4. This would then be a total of 11 points played in the tiebreaker.
+
+first_sg, second_sg, third_sg, fourth_sg, fifth_sg
+These columns all represent the total number of games played in the corresponding set. For example, if the value is 10, then that means the final set score was 6-4. In order to win / end a set, you need 6 games but it has to be win by 2 games. Values of 13 in this column are also indicative that set went to a tiebreaker. 
+
+sets_played
+Represents the total number of sets played in the match
+
+games_played
+Represens the total number of games played in the match 
+
+average_set_length
+This represents the mean time per set in each match. This is calculated from taking the 'minutes' column and dividing it by 'sets_played'
+
+average_game_length
+This represents the mean time per game in each match. This is calculated from taking the 'minutes' column and dividing it by 'games_played'
+
+ace_gap
+This is a measure of the difference in aces from the winner and the loser. A higher value here would imply that a winner won a majority of their points off aces which would speed up the match in comparison to how the loser won points. In other words, this is just w_ace - l_ace = ace_gap
+
+first_tiebreaker_comp, second_tiebreaker_comp, third_tiebreaker_comp, fourth_tiebreaker_comp, fifth_tiebreaker_comp
+To create this column, I divided the losing players tiebreaker score over the winning tiebreaker score, as measures closer to 1 will represent a more competitive tiebreaker and those closer to 0 represent a more lopsided result. For example, if the winner had 7 points and the loser had 4, the value would be first_tiebreaker_comp = 4 / 7 = .571. 
+
+total_tiebreaker_comp
+This is the sum of each sets tiebreaker competitiveness (first_tiebreaker_comp etc.). This is an aggregate value and has the risk of being skewed to matches with 5 sets having additional opportunities for tiebreakers to happen in later sets compared to best of 3 set matches. 
+
+standard_tiebreak_comp
+This is the total tiebreaker competitiveness divided by the number of sets played to be standardized across all matches included. 

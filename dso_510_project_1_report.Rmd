@@ -1,0 +1,533 @@
+---
+title: "DSO 510 Tennis Analytics Project"
+author: "Kiran Krishnamurthi, Alice Xu, Ting Chu, Rheza Utama, Kaylee Chung"
+date: "2/21/2022"
+output: html_document
+---
+
+```{r echo = FALSE, message = FALSE, warning = FALSE, tidy = TRUE}
+## Load Important Libraries ## 
+library(tidyverse)
+library(tidymodels)
+library(knitr)
+library(kableExtra)
+library(xtable)
+
+## Set Working Directory ##
+setwd('/Users/kirankrishnamurthi/OneDrive - USC Marshall School of Business/Spring 2022/DSO 510/Team Project/DSO-510-Project-1-Tennis-Match-Length-Analysis')
+
+## Load in Data ## 
+data = read_csv('atp_2019_cleaned_data.csv')
+```
+
+```{r echo = FALSE, message = FALSE, warning = FALSE, tidy = TRUE}
+data$draw_size = factor(data$draw_size)
+data$surface = factor(data$surface)
+data$tourney_level = factor(data$tourney_level)
+data$round = factor(data$round)
+data$hand_combo = factor(data$hand_combo)
+data = data %>% filter(tourney_name != 'NextGen Finals')
+```
+
+## Phase 1: Identify the Business Problem
+
+***
+
+In this project, we explore the match time of tennis games and the relationship between it and various other variables such as: match’s surface, hand combination between opponents, rank-gap, and tournament round. We test our hypothesis whether or not these variables have any statistical significance or not towards the tennis match time (positive or negative) and whether or not these variables will be able to predict match time.
+
+There are many tennis statistics out there. We didn’t wish to test something that had already been proven or was common knowledge. Inspired by the recent Australian Open final between Nadal and Medvedev which was seemingly abnormally long, we decided to focus on match time. Was the match actually abnormally long? Or should we have expected a match between the Rank 2 and Rank 5 player to have been that long? This question inspired us to form our research question. 
+
+We believe a data-driven approach will be useful to obtain insights into this relationship because statistics such as variance and correlation will show if there is a significant relationship. If we just use our common-sense, then we do believe that stats such as ranking gap (which we define as the highest rank player in the match - the lowest rank player; in cases where the player is unranked, we assigned them a rank of “0”) will inversely affect match time. That is to say, we believe that if the ranking gap between players is large, then the match should end quicker due to a difference in player skill and ability. However, this is simply a common-sense assumption. It could simply be coincidence. If we want to prove that this is true, then we will need to prove it statistically. In addition, using data analysis, we can do similar tests for other variables, and furthermore, we could potentially, if such relationships exist, build a model that can predict match times before a match is played.  
+
+In our project, we simply explore if these relationships exist. As such, our ideal data-set is historical data. We want a complete set of tennis data that includes, at minimum, player name, player rank, player seed, match, tournament name/identifier, match-time (in the same unit), record of win/loss/tie, number of games in a match. It would be great to have more data including surface which we believe may be a covariable, seeding which we considered but thought was inferior to ranking for our purposes, player height, player age at time of match, and number of aces in the match/game.
+
+Ideally, we want a large historical data-set. We may use one year to draw our conclusions and then another to test if those conclusions were right. If we were to move forward with a predictive code, we would like to train the AI on one or two year’s of data and then test it on another year's data to see if everything works out correctly.
+
+As it turns out, there is no correlation between player rank-gap and match time, thus proving our hypothesis incorrect. We also found no relationship between opponent hand combinations and match time. We do see that surface affects match times and that there does seem to be a correlation between tournament round and match times wherein we see a visible increase in average match time as the tournament progresses. However we only looked at 2019 data for this project. To confidently state this correlation beyond 2019, we would need to look at more historical data.
+
+## Phase 2: Data Cleaning and Preparation
+
+***
+
+Our project benefited from the use of an already tidy and accessible data set, but there was still considerable wrangling and preparation work we needed to perform in order to get down to the final 'cleaned' data we've imported locally for the analysis. The entire cleaning process can be observed in a separate R workbook, as it includes all the rework and preparation that went into getting our data ready. 
+
+One of the most important and notable takeaways from the data cleaning process for our project was parsing the score column into more individualized components that are analysis ready and friendly. As originally documented in the data, the score column existed as a character string of the match's final score, e.g., score would have been represented as '6-4 4-6 7-6(4)'. The score provides useful information that would impact match time or might be closely related, such as match competitiveness, and therefore we felt the need to extract the game, set, and tiebreaker components into their own columns for analysis. The detailed procedure we performed can be found in our data cleaning file, but for a high-level summary we performed a series of for loops combined with `stringr` functions like `str_detect`, `str_replace`, and `str_split` to get individual columns for each set's games and possible tie breaker score. We then aggregated these values to get an idea of how many games, sets, tiebreakers, and tiebreaker points a match included. 
+
+Another notable decision we made in our data cleaning process was to remove all rows (and therefore matches) that were a part of the Davis Cup. One of the main motivations for this absence of values in the `minutes` attribute for these matches. While not all Davis Cup matches lacked this data, a large proportion of the documented matches didn't have this data, which was critical to our subsequent hypotheses. Moreover, Davis Cup matches are focused on national representation and don't follow the ATP ranking or points system. Consequently, a lot of players in the Davis Cup matches did not have documented ATP rankings or point totals, which would've impaired our later hypothesis. Instead of imputing values here, we felt that ranking and points were values unique to each player and therefore felt it would be more appropriate to remove the entries. Finally, instead of including the remaining Davis Cup entries after the first two checks just discussed, we settled on removing all Davis Cup entries since these matches are played under different conditions, in different locations, and by slightly different rules in comparison to ATP matches. At the end of all the decisions that went into this, Davis Cup matches made up around 150 entries out of nearly 2700 so the decision to remove all these rows was not too difficult to justify. 
+
+## Phase 3: Descriptive and Predictive Analytics
+
+***
+
+In our project, we wish to establish if statistically significant relationships exist between match time and four other variables: surface, opponent hand combination, ranking gap/difference, and tournament round. This project mainly focuses on descriptive analytics since we are trying to establish if a relationship exists. We require historical data to test our hypothesis and assumptions.
+
+Logically, we expect there to be three possible outcomes. The first is that there is a significant relationship between the variables and match-time. This would mean that a correlation exists between a variable and match-time: for example, surface affects match-time. The second possibility is that there is no statistically significant relationship. Using surface again as an example, this would mean that surface does not have any effect on match-time. The final possibility is that our results are inconclusive. Since there are many covariables related to match-time, opponent hand combination, ranking difference and even tournament round, we may lack enough data to confidently conclude a relationship one way or another. 
+
+We believe that this is a question that demands data since match duration can be interpreted as a continuous variable and therefore small changes in independent variables have the potential to produce at least some resulting change in the duration as a dependent variable. Before even combing through the data, we began thinking about how different player tendencies with respect to shot making, physical attributes of the player such as height or weight, and descriptive elements of the match’s context such as draw size or surface might impact how long the match would take. 
+
+We are using a data set of ATP matches from the 2019 calendar year provided by Jeff Sackman. We pulled the data directly from his github repository and then performed our analysis on a locally stored csv file containing our cleaned and modified data. We are only using this data set for our analysis, but further analysis could entail the possibility of pulling in additional data on a player’s physical attributes and more detailed data on the intra-match shot making and information at the point-by-point level. 
+
+Data collection is not on-going. We are only using 2019 data which is complete. We felt the 2019 data would be the best choice for our analysis since it's the most recently completed ATP calendar year that was **not** impacted by COVID-19. The aggregation level of the data is per match and each row of data represents one match in which two plays compete against each other. Matches are made up of sets, games, and tiebreakers as needed. These matches can either be best of 3-sets or best of 5-sets. The data provides additional information on match totals for each player (e.g., total aces, double faults, etc.) as well as some additional player specific details like country, height, age, and ranking.
+
+The outcome variable that we are interested in is match-time in minutes. Below is a histogram that outlines the distribution of match times for best of 3 and 5-set matches.
+
+```{r echo = FALSE, message = FALSE, warning = FALSE, tidy.opts = TRUE, fig.width = 11}
+data %>% mutate(best_of = ifelse(best_of == 3, '3-Set Matches', '5-Set Matches')) %>% 
+  ggplot() + 
+  geom_histogram(aes(x = minutes, fill = factor(best_of)), color = 'black', binwidth = 10, show.legend = FALSE) +
+  #geom_density(aes(x = minutes, fill = factor(best_of)), color = 'black', show.legend = FALSE) +
+  facet_wrap(~best_of, ncol = 2) + 
+  scale_fill_manual(values = c('#619CFF', '#FF61C3')) + 
+  labs(x = 'Minutes', y = 'Number of Observations',
+       title = 'Histrogram of the Match Duration in Minutes for 3 and 5-Set Matches',
+       subtitle = 'Bin-width is 10 minutes') +
+  scale_x_continuous(n.breaks = 20) + 
+  scale_y_continuous(n.breaks = 10) +
+  theme_bw() +
+  theme(plot.subtitle = element_text(face = 'italic')) +
+  theme(plot.title.position = 'plot')
+```
+
+***
+
+### Question 1: How does a match's surface impact the average set length?
+
+The three main surfaces for professional tennis tournaments are hard courts, clay courts, and grass courts. The majority of tournaments are played on hard court surfaces including both the Australian Open and the US Open. However, there is a sizable ATP swing that encompasses Masters 1000 tournaments and the French Open played on clay. The grass court swing is the shortest, with no Masters 1000s, but is still important taken seriously given that it includes Wimbledon. 
+
+We're interested in exploring how match duration varies across surfaces. The null hypothesis in this case is that a match's surface has no impact on how long the average set will be. The alternative hypothesis then becomes that a match's surface will impact the average set duration. 
+
+> $H_0$ = Match surface has no impact on the average set length 
+
+> $H_A$ = Match surface does have an impact on the average set length
+
+Note, we're using our metric of average set length in this case because it standardizes *all* matches in our data set. This is critical given that matches clay and grass matches will be disproportionately made up of best of 5 set matches compared to the hard court matches. For subsequent hypotheses we split our analysis into two parts, one for best of 3-set matches and another for 5-set matches.    
+
+```{r echo = FALSE, message = FALSE, warning = FALSE, tidy.opts = TRUE, fig.width = 11}
+data %>% ggplot() + 
+  geom_jitter(aes(x = surface, y = average_set_length, color = surface), alpha = 1/5) + 
+  geom_boxplot(aes(x = surface, y = average_set_length, color = surface), outlier.shape = 2, outlier.color = 'black') + 
+  theme_bw() + 
+  labs(x = 'Surface', y = 'Average Set Length', title = 'How does the average set length compare across matches on different surfaces?') + 
+  guides(color = 'none') + 
+  theme(axis.text = element_text(colour = 'black')) + 
+  theme(plot.title.position = 'plot') +
+  scale_color_brewer(palette = 'Set1')
+```
+
+Below is a table including two basic summary statistics for the `average_set_length` variable for matches played on the three different surfaces. As you can see, there are almost double the amount of hard court matches compared to clay court matches, and almost five times as many grass court matches.
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+tab_01 = data.frame(
+  Surface = c('Hard', 'Clay', 'Grass'),
+  M = c(mean(data %>% filter(surface == 'Hard') %>% pull(average_set_length)),
+        mean(data %>% filter(surface == 'Clay') %>% pull(average_set_length)),
+        mean(data %>% filter(surface == 'Grass') %>% pull(average_set_length))),
+  SD = c(sd(data %>% filter(surface == 'Hard') %>% pull(average_set_length)),
+        sd(data %>% filter(surface == 'Clay') %>% pull(average_set_length)),
+        sd(data %>% filter(surface == 'Grass') %>% pull(average_set_length))),
+  Obs = c(length(data %>% filter(surface == 'Hard') %>% pull(average_set_length)),
+        length(data %>% filter(surface == 'Clay') %>% pull(average_set_length)),
+        length(data %>% filter(surface == 'Grass') %>% pull(average_set_length)))
+)
+
+kbl(tab_01, booktabs = T) %>% kable_classic(full_width = T, html_font = "Cambria") %>% 
+  kable_styling(position = "left")
+```
+
+In order to evaluate our hypothesis, we felt a linear regression model would serve well in determining if there is a relationship between match surface and average set length. Our dependent, or response, variable in this regression is the average set length and the independent variable is the match surface, which is a factor variable with levels grass, clay, and hard. 
+
+Nonetheless, since our analysis in this hypothesis is evaluating whether a categorical distinction (i.e., a tournament's surface) has an impact on a continuous variable (i.e., a match's average set length in minutes), a one-way ANOVA model would also prove to be a viable option. Below are both the regression output and the ANOVA output for a model assessing variation in match duration from what surface the match was played on. 
+
+```{r echo = TRUE, message = FALSE, warning = FALSE, results = 'markdown', tidy = TRUE}
+M1 = lm(average_set_length ~ surface, data = data)
+```
+
+
+```{r echo = FALSE, message = FALSE, warning = FALSE, results='asis'}
+M1.summary = summary(M1) 
+M1.adj.rsquared = round(M1.summary$adj.r.squared, 5)
+
+M1.summary %>%
+  xtable() %>%
+  kbl(booktabs = T, digits = 5, centering = F, 
+      caption = 'Regression Summary where Adj R-Squared Equals .01165') %>% kable_classic(full_width = T, html_font = "Cambria") %>% 
+  kable_styling(position = "left") 
+```
+
+```{r echo = TRUE, message = FALSE, warning = FALSE, results = 'markdown', tidy = TRUE}
+M2 = aov(average_set_length ~ surface, data = data)
+```
+
+```{r echo = FALSE, message = FALSE, warning = FALSE, results = 'asis', tidy = TRUE, tidy.opts = TRUE}
+M2 %>% 
+  summary() %>% 
+  xtable() %>% 
+  kbl(booktabs = T, digits = 8, centering = F,
+      caption = 'One-way ANOVA Summary') %>% kable_classic(full_width = T, html_font = "Cambria") %>% 
+  kable_styling(position = 'left')
+```
+```{r echo = FALSE, message = FALSE, warning = FALSE, results = 'asis', tidy = TRUE, tidy.opts = TRUE}
+TukeyHSD(M2) %>% tidy() %>% 
+  kbl(longtable = T, booktabs = T, digits = 8, col.names = c('Term', 'Comparison', 'Null Value', 
+                                                             'Estimate', 'Lower Bound', 'Upper Bound', 
+                                                             'Adj P-Value'),
+      caption = 'Tukey HSD Report for One-Way ANOVA') %>% 
+  kable_classic(full_width = T, html_font = "Cambria") %>% 
+  kable_styling(position = 'left') 
+```
+
+The results from both of these models indicate that there is a statistically significant relationship between a match's surface and the average set length of a match. The p-values for both the $\beta$ regression coefficients and the $F-Stat$ from the ANOVA model are less than the .05 significance threshold, and thus we can reject the null hypothesis. Moreover, the honest significance difference test results provide adjusted p-values less than the .05 threshold which upholds our idea that the difference in average set length is statistically significant when comparing matches on different surfaces. 
+
+If we're to draw conclusions from our results, it would suggest that matches played on grass courts are the fastest, followed by hard courts, and finally clay courts. This conclusion isn't groundbreaking. Most tennis players who have played on all three surfaces will know the pace of the game is faster from one to the other. The physics of the game would suggest this in the first place, as there's more or less friction from surface to surface which impacts how fast the ball will travel but also how quickly players can move around on the court. Accordingly, the $Adj \space R^2$ term from our simple linear regression model is quite small which suggests that surface only explains 1.1% of the variation in average set length.   
+
+### Question 2: Does the hand combination between opponents impact match duration?
+
+Another exploratory question regarding match duration would be how does the players hand combination with their opponent impact the average set length. Our hypothesis here is that when opponents of different hands match up against each other, the match time (or average set length) will be longer. This comes from our belief that players will have a harder time settling into a rhythm in the match when having to play against whose shots, forehands and backhands, occur on opposite sides of the court compared to what it is for themselves. In other words, we believe that two right-handed players will have a faster match compared to a right-handed versus a left-handed, since the two right handed players will potentially find more opportunities to hit shots in their wheelhouse as they're presumably more comfortable dealing with the shots their opponent gives them. Our null and alternative hypothesis for this question are stated below: 
+
+> $H_0$ = Hand combination has no impact on the match duration and/or average set length
+
+> $H_A$ = Hand combination does impact the match duration and/or average set length
+
+Below we've included a summary table detailing the mean, variance, standard deviation, and number of observations for the binary coded variable of whether a match was played between two players of the same hand. In the second table, we distinguish the type of hand combination that occurred between the winner and the loser, with the winner's hand being the first term in the sequence.
+
+```{r echo = FALSE, include = TRUE, message = FALSE, warning = FALSE, results='asis'}
+data.bo3 = data %>% filter(best_of == 3) %>% 
+  mutate(is_same_hand = ifelse(winner_hand == loser_hand,'Yes','No')) %>%
+  group_by(is_same_hand) %>% summarise(Mean = mean(minutes),
+                                       Variance = var(minutes),
+                                       StDev = sd(minutes),
+                                       Obs = n()) %>% arrange(desc(Mean))
+
+data.bo5 = data %>% filter(best_of == 5) %>% 
+  mutate(is_same_hand = ifelse(winner_hand == loser_hand,'Yes','No')) %>%
+  group_by(is_same_hand) %>% summarise(Mean = mean(minutes),
+                                       Variance = var(minutes),
+                                       StDev = sd(minutes),
+                                       Obs = n()) %>% arrange(desc(Mean))
+
+data.bound = cbind(data.bo3, data.bo5 %>% select(Mean, Variance, StDev, Obs))
+
+data.bound %>% kbl(col.names = c('Opponents Same Hand?', 'Mean', 'Variance', 'StDev', 
+                                 'Obs', 'Mean', 'Variance', 'StDev', 'Obs'), 
+                   longtable = T, booktabs = T, caption = "Match Duration by Hand Combination") %>% add_header_above(c(" ", "Best of 3 Set Matches" = 4, "Best of 5 Set Matches" = 4)) %>%
+  kable_classic(full_width = T, html_font = "Cambria") %>% 
+  kable_styling(latex_options = c("repeat_header"),
+                position = 'left') 
+```
+
+```{r echo = FALSE, include = TRUE, message = FALSE, warning = FALSE, results='asis'}
+data.bo3 = data %>% filter(best_of == 3) %>% 
+  mutate(is_same_hand = ifelse(winner_hand == loser_hand,'Yes','No')) %>%
+  group_by(hand_combo) %>% summarise(Mean = mean(minutes),
+                                       Variance = var(minutes),
+                                       StDev = sd(minutes),
+                                       Obs = n()) %>% arrange(desc(Mean))
+
+data.bo5 = data %>% filter(best_of == 5) %>% 
+  mutate(is_same_hand = ifelse(winner_hand == loser_hand,'Yes','No')) %>%
+  group_by(hand_combo) %>% summarise(Mean = mean(minutes),
+                                       Variance = var(minutes),
+                                       StDev = sd(minutes),
+                                       Obs = n()) %>% arrange(desc(Mean))
+
+data.bound = cbind(data.bo3, data.bo5 %>% select(Mean, Variance, StDev, Obs))
+
+data.bound %>% kbl(col.names = c('Hand Combination', 'Mean', 'Variance', 'StDev', 
+                                 'Obs', 'Mean', 'Variance', 'StDev', 'Obs'), 
+                   longtable = T, booktabs = T, caption = "Match Duration by Hand Combination") %>% add_header_above(c(" ", "Best of 3 Set Matches" = 4, "Best of 5 Set Matches" = 4)) %>%
+  kable_classic(full_width = T, html_font = "Cambria") %>% 
+  kable_styling(latex_options = c("repeat_header"),
+                position = 'left') 
+```
+
+Finally, an interesting observation we noticed from the previous table was the difference in average set length for matches won by a left-handed player versus those won by a right-handed player. In the following table, we break down average set length by the binary variable of whether the winner was left-handed or not. 
+```{r echo = FALSE, include = TRUE, message = FALSE, warning = FALSE, results='asis'}
+data.bo3 = data %>% filter(best_of == 3) %>%  mutate(lefty_winner = ifelse(winner_hand == 'L','Yes','No')) %>%
+  group_by(lefty_winner) %>% summarise(Mean = mean(minutes),
+                                       Variance = var(minutes),
+                                       StDev = sd(minutes),
+                                       Obs = n()) %>% arrange(desc(Mean))
+
+data.bo5 = data %>% filter(best_of == 5) %>%  mutate(lefty_winner = ifelse(winner_hand == 'L','Yes','No')) %>%
+  group_by(lefty_winner) %>% summarise(Mean = mean(minutes),
+                                       Variance = var(minutes),
+                                       StDev = sd(minutes),
+                                       Obs = n()) %>% arrange(desc(Mean))
+
+data.bound = cbind(data.bo3, data.bo5 %>% select(Mean, Variance, StDev, Obs))
+
+data.bound %>% kbl(col.names = c('Is Winner Lefty?', 'Mean', 'Variance', 'StDev', 
+                                 'Obs', 'Mean', 'Variance', 'StDev', 'Obs'), 
+                   longtable = T, booktabs = T, caption = "Match Duration by Hand Combination") %>% add_header_above(c(" ", "Best of 3 Set Matches" = 4, "Best of 5 Set Matches" = 4)) %>%
+  kable_classic(full_width = T, html_font = "Cambria") %>% 
+  kable_styling(latex_options = c("repeat_header"),
+                position = 'left') 
+```
+
+In order to test our hypothesis here, this time we have chosen to use a one way ANOVA test. We considered the application of this statistical test appropriate in this situation since we're evaluating the changes in `average_set_length` which is a continuous dependent variable against different levels from the categorical factor variable of `hand_combo`. Moreover, our hypotheses don't seek to identify a directional change in match duration from hand combinations (i.e., whether or not the match will be longer / quicker), but instead are focused primarily on if match times are different. We settled on using `hand_combo` as the variable to test, and not whether the players were of the same hand or if the winner was lefty, since it provides more information on the winner/loser hand combination compared to just the detail as to whether the opponents were of the same hand. 
+
+```{r echo = FALSE, include = TRUE, message = FALSE, warning = FALSE, results='asis', fig.width = 11}
+data %>% filter(best_of == 3) %>% ggplot(aes(x = hand_combo, y = minutes, fill = hand_combo)) + 
+  geom_violin(adjust = .5, show.legend = FALSE, alpha = 1/2, outlier.shape = 2, outlier.color = 'black') + 
+  #geom_jitter(aes(x = hand_combo, y = minutes, color = hand_combo), alpha = 1) +
+  geom_dotplot(binaxis = 'y', binwidth = 1.5, stackdir = 'center', show.legend = FALSE) + 
+  stat_summary(fun = mean, show.legend = FALSE, geom = 'crossbar') +
+  theme_bw() + 
+  labs(x = 'Hand Combination', y = 'Match Duration (Minutes)', title = 'Match Duration for Different Opponent Hand Combinations in Best of 3 Set Matches') + 
+  guides(color = 'none') + 
+  theme(axis.text = element_text(colour = 'black')) + 
+  theme(plot.title.position = 'plot') +
+  scale_color_brewer(palette = 'Dark2') + 
+  scale_fill_brewer(palette = 'Dark2') +
+  scale_y_continuous(n.breaks = 20)
+```
+
+```{r echo = FALSE, include = TRUE, message = FALSE, warning = FALSE, results='asis', fig.width = 11}
+data %>% filter(best_of == 5) %>% ggplot(aes(x = hand_combo, y = minutes, fill = hand_combo)) + 
+  geom_violin(adjust = .5, show.legend = FALSE, alpha = 1/2, outlier.shape = 2, outlier.color = 'black') + 
+  #geom_jitter(aes(x = hand_combo, y = minutes, color = hand_combo), alpha = 1) +
+  geom_dotplot(binaxis = 'y', binwidth = 3.5, stackdir = 'center', show.legend = FALSE) + 
+  stat_summary(fun = mean, show.legend = FALSE, geom = 'crossbar') +
+  theme_bw() + 
+  labs(x = 'Hand Combination', y = 'Match Duration (Minutes)', title = 'Match Duration for Different Opponent Hand Combinations in Best of 5 Set Matches') + 
+  guides(color = 'none') + 
+  theme(axis.text = element_text(colour = 'black')) + 
+  theme(plot.title.position = 'plot') +
+  scale_color_brewer(palette = 'Paired') + 
+  scale_fill_brewer(palette = 'Paired') +
+  scale_y_continuous(n.breaks = 20)
+```
+
+Before even moving on to run an ANOVA model for match duration and the opponent hand combination, we can see that there is little between group variance for the hand combination variables, and a lot more intra-group variance as evidenced by the hybrid dot and violin plots above. This is leading us to believe that there will be no statistically significant relationship between the opponent hand combination and the match duration. 
+
+We'd like to note that a boxplot with a jitterplot underneath would allow for easy comparison of the means of each group as well as the intra-group variance, and perhaps be a better way to represent data that will be fed into an ANOVA compared to the violin plot. However, we go on to use the boxplot / jitterplot visualization again in Question 4 and we felt like presenting an alternative way to view the same information might be refreshing.
+
+```{r echo = FALSE, include = TRUE, message = FALSE, warning = FALSE, results='asis'}
+
+data.bo3 = data %>% filter(best_of == 3) %>% 
+  mutate(same_hand = ifelse(winner_hand == loser_hand, 'Yes', 'No'))
+
+data.bo5 = data %>% filter(best_of == 5) %>% 
+  mutate(same_hand = ifelse(winner_hand == loser_hand, 'Yes', 'No'))
+
+aov.1bo3 = aov(minutes ~ hand_combo, data = data.bo3)
+aov.1bo5 = aov(minutes ~ hand_combo, data = data.bo5)
+
+cbind(tidy(aov.1bo3), tidy(aov.1bo5) %>% select(-term)) %>% 
+  kbl(col.names = c('Term', 'DF', 'Sum Sq', 'Mean Sq', 
+                    'F Stat', 'P Value', 'DF', 'Sum Sq', 'Mean Sq',
+                    'F Stat', 'P Value'), 
+      longtable = T, booktabs = T, 
+      caption = "One-Way ANOVA results for match duration from hand combination") %>%
+  add_header_above(c(" ", "Best of 3 Set Matches" = 5, "Best of 5 Set Matches" = 5)) %>%
+  kable_classic(full_width = T, html_font = "Cambria") %>% 
+  kable_styling(latex_options = c("repeat_header"),
+                position = 'left') 
+```
+```{r echo = FALSE, include = TRUE, message = FALSE, warning = FALSE, results='asis'}
+left_join(TukeyHSD(aov.1bo3) %>% tidy(), TukeyHSD(aov.1bo5) %>% tidy(), by = 'contrast') %>% 
+  select(-term.x, -term.y) %>% 
+  kbl(longtable = T, booktabs = T, digits = 8, 
+      col.names = c('Comparison', 'Null Value', 'Estimate', 'Lower Bound', 
+                    'Upper Bound', 'Adj P-Value','Null Value', 'Estimate', 'Lower Bound', 
+                    'Upper Bound', 'Adj P-Value'),
+      caption = 'Tukey HSD Results from One-Way ANOVA for Hand Combination') %>%
+  add_header_above(c(" ", "Best of 3 Set Matches" = 5, "Best of 5 Set Matches" = 5)) %>%
+  kable_classic(full_width = T, html_font = "Cambria") %>% 
+  kable_styling(latex_options = c("repeat_header"),
+                position = 'left') 
+```
+From the results of our ANOVA model, we fail to reject the $H_0$ and therefore can conclude that an opponent hand combination has no statistically significant impact on match duration. Further analysis can be conducted included this variable in two-way ANOVA models where one could explore the way how the hand combination impacts match time accounting for other categorical variances like what round in a tournament players might be in or on what surface might a match have been played.   
+
+### Question 3: Does difference in ranking have any impact on match time? 
+
+Two attributes we created for our analysis that we believe could have some impact on match length are `ranking_distance` and `point_distance`. The data set we've chosen for our analysis includes attributes for both the winner's and loser's ATP rankings and point totals. This information is particularly helpful in evaluating an expected level of competitiveness between two players before the match. Higher ranked players, and therefore players with more points, should in theory have faster matches against lower ranked players and the higher the ranking, the better the player should be.
+
+The two attributes we created of `ranking_distance` and `point_distance` represent the gap between the two players ranking and ATP point totals before the match. The ranking distance is measured by taking the loser's ranking and subtracting the winner's ranking, as we'd expect the winner to be better ranked, and therefore be represented by a lower number (e.g., number 1 in the world compared to number 100). Essentially, since ranking is an inversely proportional scale to expected talent, we take the loser minus the winner inputs. For point distance, ATP points should be proportional to player talent so we take the winner's points and subtract the loser's points to get point distance. 
+
+We've also introduced two supplemental columns to the created columns from above of `abs_ranking_distance` and `abs_point_distance` which represent the absolute value of the the distance between the winner's and loser's ranking or points. Taking the absolute value of the distance here is useful since it technically eliminates any inputs that come from the match ending (i.e., who's the winner or loser) and therefore is focused on aspects of the two players in question before the match is to even begin. With this in mind, we would expect the highest ranking distances and point distances to yield the fastest matches as these would represent the most "lopsided" matches on paper. Thus, we finally settle on the following null and alternative hypothesis: 
+
+> $H_0$ = The absolute value of player ranking distance has no negative impact on a match's duration
+
+> $H_A$ = The absolute value of player ranking distance negatively impacts  a match's duration
+
+```{r echo = FALSE, include = TRUE, message = FALSE, warning = FALSE, results='asis', fig.width = 11}
+data %>% mutate(higher_ranked_player_won = ifelse(ranking_distance > 0, 'Yes', 'No'),
+                split = ifelse(best_of == 3, '3-Set Match', '5-Set Match')) %>% 
+  filter(!abs_ranking_distance %in% boxplot.stats(data$abs_ranking_distance)$out) %>% 
+  ggplot() + 
+  geom_point(aes(x = abs_ranking_distance, y = minutes, color = higher_ranked_player_won), alpha = 1/3) + 
+  geom_smooth(aes(x = abs_ranking_distance, y = minutes), color = '#00C19F') + 
+  scale_color_manual(name = 'Higher Ranked \nPlayer Won?', values = c('#619CFF', '#FF61C3')) + 
+  facet_wrap(~split, ncol = 2) + 
+  theme_bw() + 
+  labs(x = 'Absolute Ranking Distance', y = 'Minutes',
+       title = 'Match Duration in Minutes compared to the Absolute Ranking Distance',
+       subtitle = 'Outliers removed through boxplot.stats function') + 
+  theme(plot.title.position = 'plot') +
+  theme(plot.subtitle = element_text(face = 'italic'))
+```
+
+The plots above do not show much of any relationship between player ranking distance and match time, and below we can confirm that by determining the correlation coefficient between the two variables for best of 3 and 5 set matches. 
+
+```{r echo = TRUE, include = TRUE, message = FALSE, warning = FALSE, tidy = TRUE, results='asis'}
+# Correlation coefficient between match duration and absolute ranking distance for best of 3 set matches 
+cor(x = data %>% filter(best_of == 3) %>% pull(minutes), 
+    y = data %>% filter(best_of == 3) %>% pull(abs_ranking_distance))
+```
+
+```{r echo = TRUE, include = TRUE, message = FALSE, warning = FALSE, tidy = TRUE, results='asis'}
+# Correlation coefficient between match duration and absolute ranking distance for best of 5 set matches 
+cor(x = data %>% filter(best_of == 5) %>% pull(minutes), 
+    y = data %>% filter(best_of == 5) %>% pull(abs_ranking_distance))
+```
+
+Below are the regression outputs for when we regress the absolute value of player ranking distance to predict match duration for both 3 and 5 set situations. 
+
+```{r echo = FALSE, include = TRUE, message = FALSE, warning = FALSE, results='asis'}
+M.bo3 = lm(minutes ~ abs_ranking_distance, data = data %>% filter(best_of == 3))
+M.bo5 = lm(minutes ~ abs_ranking_distance, data = data %>% filter(best_of == 5))
+
+left_join(tidy(M.bo3), tidy(M.bo5), by = 'term') %>% 
+  kbl(digits = 5, booktabs = T, longtable = T, 
+      col.names = c('Term', 'Beta', 'SE', 'T-Stat', 'P-Value', 'Beta', 
+                    'SE', 'T-Stat', 'P-Value'),
+      caption = 'Regression for Match Duration (Minutes) from the Absolute Ranking Distance') %>% 
+  add_header_above(c(" ", "Best of 3-Set Matches" = 4, "Best of 5-Set Matches" = 4)) %>%
+  kable_classic(full_width = T, html_font = "Cambria") %>% 
+  kable_styling(latex_options = c("repeat_header"),
+                position = 'left') 
+```
+
+```{r echo = FALSE, include = FALSE, message = FALSE, warning = FALSE, tidy = TRUE, tidy.opts = TRUE, results = 'asis' }
+sum_M.bo3 = summary(M.bo3)
+sum_M.bo5 = summary(M.bo5)
+
+M.bo3.Adj_Rsquared = round(sum_M.bo3$adj.r.squared, 5)
+M.bo5.Adj_Rsquared = round(sum_M.bo5$adj.r.squared, 5)
+```
+
+The results confirm what we could take away from looking at the plots and correlation coefficients from above. The P-Value in both cases for the $\beta_1$ for absolute ranking distance is much greater than a potential threshold of 5%. Moreover, the adjusted R-Squared terms for each model are -0.00037 and -0.00106, which indicate that the absolute ranking distance between two players explains little to no variation in the match's duration. 
+
+### Question 4: Does the round of a tournament impact the match time? 
+
+The idea for this question is motivated from recent memory being the battle between Daniil Medvedev and Rafael Nadal in the Australian Open final. While Nadal's comeback is certainly one to remember, their match is just another name in a long list of epic battles that have occurred in tournament finals. For fans, a competitive, intense, and lengthy tournament final is exactly what one could ask for.
+
+From our standpoint, it seems rather obvious that the later into a tournament two players get, the longer they should expect their matches to be. In theory, lesser competition will get weeded out in the early rounds of a tournament so that come time for the final rounds, we're left with the real cream of the crop talent. Thus, we land on the following null and alternative hypotheses:
+
+> $H_0$ = The match round within a tournament has no impact on how long the match will take
+
+> $H_A$ = The match round positively impacts how long the match will take
+
+For our analysis, we re-coded the match round attribute to be an factor variable with levels moving from the first rounds of a tournament down to the final round. 
+
+```{r echo = FALSE, include = FALSE, message = FALSE, warning = FALSE, tidy = TRUE, tidy.opts = TRUE, results = 'asis' }
+data$round = factor(data$round, 
+                    levels = c('RR', 'R128', 'R64', 'R32', 'R16', 'QF', 'SF', 'F'), 
+                    ordered = FALSE)
+```
+
+In order to better visualize the distribution of values for match duration as the round varies, we've recreated the same boxplot / jitterplot visualization from earlier. This visualization provides an easy opportunity to view the distribution of values for match duration while comparing each round. It is important to note that we've removed all entries with rounds tagged 'RR' as these belong to the ATP tour finals tournament. While these are intensely competitive matches and do provide important information as to how match length can vary, for the purposes of consistency in how we treat matches we've decided to remove the entries since it's the only tournament with a round-robin format in our data. 
+
+```{r echo = FALSE, message = FALSE, warning = FALSE, tidy.opts = TRUE, fig.width = 11}
+data %>% filter(round != 'RR') %>% filter(best_of == 3) %>% ggplot() + 
+  geom_jitter(aes(x = round, y = minutes, color = round), alpha = 1/5) + 
+  geom_boxplot(aes(x = round, y = minutes, color = round), outlier.shape = 2, outlier.color = 'black') + 
+  theme_bw() + 
+  labs(x = 'Round', y = 'Match Duration (Minutes)', title = 'Match Duration for Different Tournament Rounds for Best of 3-Set Tournaments') + 
+  guides(color = 'none') + 
+  theme(axis.text = element_text(colour = 'black')) + 
+  theme(plot.title.position = 'plot') + 
+  scale_color_brewer(palette = 'Dark2')
+```
+
+```{r echo = FALSE, message = FALSE, warning = FALSE, tidy.opts = TRUE, fig.width = 11}
+data %>% filter(round != 'RR') %>% filter(best_of == 5) %>% ggplot() + 
+  geom_jitter(aes(x = round, y = minutes, color = round), alpha = 1/5) + 
+  geom_boxplot(aes(x = round, y = minutes, color = round), outlier.shape = 2, outlier.color = 'black') + 
+  theme_bw() + 
+  labs(x = 'Round', y = 'Match Duration (Minutes)', title = 'Match Duration for Different Tournament Rounds for Best of 5-Set Tournaments') + 
+  guides(color = 'none') + 
+  theme(axis.text = element_text(colour = 'black')) + 
+  theme(plot.title.position = 'plot') +
+  scale_color_brewer(palette = 'Paired')
+```
+```{r echo = FALSE, include = TRUE, message = FALSE, warning = FALSE, results='asis'}
+data.Q4.bo3 = data %>% filter(round != 'RR' & best_of == 3) %>% group_by(round) %>% 
+  summarise(M = mean(minutes),
+            Var = var(minutes),
+            SD = sd(minutes),
+            Obs = n())
+
+data.Q4.bo5 = data %>% filter(round != 'RR' & best_of == 5) %>% 
+  group_by(round) %>% 
+  summarise(M = mean(minutes),
+            Var = var(minutes),
+            SD = sd(minutes),
+            Obs = n())
+
+left_join(data.Q4.bo3, data.Q4.bo5, by = 'round') %>% 
+  kbl(col.names = c('Tournament Round', 'Mean', 'Variance', 'StDev', 
+                                 'Obs', 'Mean', 'Variance', 'StDev', 'Obs'), 
+                   longtable = T, booktabs = T, 
+      caption = "Match Duration by Tournament Round") %>% 
+  add_header_above(c(" ", "Best of 3 Set Matches" = 4, 
+                     "Best of 5 Set Matches" = 4)) %>%
+  kable_classic(full_width = T, html_font = "Cambria") %>% 
+  kable_styling(latex_options = c("repeat_header"),
+                position = 'left') 
+```
+These summary tables above also give some understanding of how the values are distributed. There's a notably large jump in match duration in best of 5 set tournament finals (i.e., grand slams). Unfortunately, since we're only using a data set that captures matches across the 2019 calendar year, we only have 4 observations under this setting. 
+
+Another interesting takeaway here is the variation in match length for the R16 matches in best of 5 set tournaments. The variance and standard deviation are much greater in comparison to other values of comparable sample size, which suggests that this might be **the** final round where truly lopsided matches occur. We arrive at this thought given the supposition that a larger variance for match times in this round would be indicative of more blow-outs and battles, causing some matches to be consequently much shorter than the highly contested matches as a tournament approaches the final. 
+
+Below is the output for the regression between `round` as the independent variable and `minutes` as the dependent variable, broken across best of 3 and 5 set matches. 
+
+```{r echo = FALSE, include = TRUE, message = FALSE, warning = FALSE, results='asis'}
+M.bo3 = lm(minutes ~ round, data = data %>% filter(round != 'RR' & best_of == 3))
+M.bo5 = lm(minutes ~ round, data = data %>% filter(round != 'RR' & best_of == 5))
+
+left_join(tidy(M.bo3), tidy(M.bo5), by = 'term') %>% 
+  kbl(digits = 5, booktabs = T, longtable = T, 
+      col.names = c('Term', 'Beta', 'SE', 'T-Stat', 'P-Value', 'Beta', 
+                    'SE', 'T-Stat', 'P-Value'),
+      caption = 'Regression for Match Duration (Minutes) against the Tournament Round') %>% 
+  add_header_above(c(" ", "Best of 3-Set Matches" = 4, "Best of 5-Set Matches" = 4)) %>%
+  kable_classic(full_width = T, html_font = "Cambria") %>% 
+  kable_styling(latex_options = c("repeat_header"),
+                position = 'left') 
+
+sum_M.bo3 = summary(M.bo3)
+sum_M.bo5 = summary(M.bo5)
+
+M.bo3.Adj_Rsquared = round(sum_M.bo3$adj.r.squared, 5)
+M.bo5.Adj_Rsquared = round(sum_M.bo5$adj.r.squared, 5)
+```
+The regression output above sheds some light on what rounds actually have statistically significant impacts on the match time in both best of 3 and 5 set matches. The only $\beta$ (s) in this regression model that have statistically significant p-values at the 5% level would be in the best of 5-set match table and those are for R64 and F. While the final round p-value is quite small, given that this $\beta$ is coming from only 4 observations makes it hard to trust in the data. On the other hand, the < 5% p-value for R64 matches in 5 set tournaments is indicative that matches generally get around 10 minutes longer when a player goes from the first to second round of a grand-slam tournament. Logical explanations to support the data here would include ideas like lucky losers, wildcards, or even just more lopsided matches take place in the first round, and thus present players with an easier time in winning. 
+
+The $Adj \space R^2$ for each model is .00512 and .01572, respectively. Ultimately, we fail to reject the $H_0$ for all of the regression coefficients $\beta$ except for the R64 and F in grand-slam settings. 
+
+## Phase 5: Teamwork and Leadership in Our Project
+
+***
+
+#### Ideal Experiment
+
+The ideal experiment would be a controlled experiment, where one independent variable would be tested in conjunction with one dependent variable. This would mean that the environment, setting, player’s state, etc. would have to stay consistent throughout each match to present an ideal experiment and uncover unbiased findings of that one dependent variable. However, it is extremely difficult to the exact environment, with only the dependent variable measured. For instance, when Question One delves into the match surface’s impact on average set length, there are several extenuating factors that could affect the match time, aside from just the surface material (such as the tournament’s environment or the players’ individual psyche). Therefore, we have a limitation in finding completely controlled results that are able to be replicated in future experiments. 
+
+Another limitation is the absence of detailed, intra-match data. While match time is a variable documented at the *end* of a match, the final value could be heavily influenced by developments that occur during the match itself. The ideal experiment would have someone documenting the match at a 
+"play-by-play" level. 
+
+
+Another limitation is working with significant variance and standard deviation within the dataset. Both the first data set with court surfaces and the second data set with hand combination exhibit high variances and standard deviations. This shows that the data wildly varies and as our findings show, there is little correlation between the dependent variables and match time. This reveals that match time is significantly variable to the individual player, which presents a limitation in determining correlative results. 
+
+Much of our findings produced inconclusive results. This could be attributed to the unpredictability of an individual player’s response to certain factors on the tournament days. Some of these factors can be measured: such as audience noise level and temperature environment. However, other factors are more qualitative and difficult to measure: such as the player’s emotional state, psychological well-being, and perceived stakes. Not only were we faced with limitations in being able to obtain this data, but also, it is difficult to compile this information into hard data for analysis. Furthermore, it is near impossible to replicate a controlled experiment with these exact factors, since a player’s individual psyche differs from game to game. The unpredictability of the player’s state as well as the inability to translate this into hard data, presented a challenge in our analytics. 
+
+#### Teamwork
+
+From the beginning, the team was well-organized, as we set weekly meetings and a road map that organized the work. Since our team had a few tennis enthusiasts, we wanted to work with data that explored findings in that sport. As a result, the team decided to research the impact that different variables had on match times. Because not everyone was well-versed in the sport, the team paired with those who knew more about tennis and those who were unfamiliar with it. This allowed for great teamwork, as the data had tennis jargon at times. 
+
+Furthermore, the team was led by various members of our group. Alice would take the initiative when it came to organizing the group meetings, setting deadlines, and constructing road maps. This was extremely helpful because we were always aware of the things we needed to complete, and the group never strayed from the big picture. Additionally, Kiran would take the initiative to help the rest of the group members code in R, as it was an unfamiliar language to most in our group. He even led a Zoom meeting on a Saturday morning to help the rest of the group understand the different codes in R (which was not only helpful for the project, but also, helpful for the entire course). This ensured that the rest of the team members were on the same page and that nobody had questions or ambiguities when it came to the project. 
+
+Our teamwork dynamics worked well because in the places one person fell short, the other teammate would be quick to explain how something worked. Therefore, the project came together well, and the teamwork progressed smoothly with no obstacles. 
+
+***
